@@ -1,0 +1,19 @@
+{
+    "name": "olayemii/pandaqb",
+    "description": "A PHP Query Builder",
+    "type": "library",
+    "authors": [
+        {
+            "name": "OLayemii",
+            "email": "donyemisco@gmail.com"
+        }
+    ],
+    "require": {
+        "vlucas/phpdotenv": "^3.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "App/"
+        }
+    }
+}
