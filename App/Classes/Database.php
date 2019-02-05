@@ -1,12 +1,18 @@
 <?php
 
-    use App\Classes\Database;    
-
-    namespace App\Classes {
+        /**
+         * Created by PhpStorm.
+         * User: GARUBA
+         * Date: 2/5/2019
+         * Time: 6:39 PM
+         */
+        namespace App\Classes;
         class Database {
 
+
             private static $instance;
-            
+            private $_pdo;
+
             private  function __construct(){
                 try { 
                     // Init Variables 
@@ -17,21 +23,24 @@
                     $schema = getenv('DB_DATABASE');
 
                     // Init PDO
-                    self::$instance = new \PDO("$server:host=$host; dbname=$schema", $user, $password);
-                    
-                    self::$instance->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                    $this->_pdo = new \PDO("$server:host=$host; dbname=$schema", $user, $password);
+                    $this->_pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
                 }catch(\PDOException $e){
                     echo $e->getMessage();
                 }
             }
-
+            
+            //Return instance of the class
             public static function getInstance(){
                 
                 if (!isset($instance)){
                     self::$instance = new Database();
                 }
+                
                 return self::$instance;
             }
 
+            public function getConnection(){
+                return $this->_pdo;
+            }
         }
-    }
