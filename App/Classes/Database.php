@@ -5,10 +5,9 @@
     namespace App\Classes {
         class Database {
 
-            private $_pdo;
             private static $instance;
             
-            public  function __construct(){
+            private  function __construct(){
                 try { 
                     // Init Variables 
                     $server = getenv('DB_SERVER');
