@@ -12,7 +12,10 @@
     // var_dump(Database::getInstance());
 
     $qb = new QueryBuilder();
-    $d = $qb->table("users")->where("name", "=", "OLayemii");
+    $d = $qb->table("users")->where(null, [
+        ["name", "=", "OLa"],
+        ["age", "=", "22"],
+    ])->orWhere("name", "Temitope")->orWhere("beards", '=', "None");
 
 
     var_dump($d->get());
