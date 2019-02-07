@@ -1,21 +1,14 @@
 <?php
 
-    require 'vendor/autoload.php';
+    require __DIR__."/src/Core/bootstrap.php";
 
     use App\Classes\Database;
     use App\Classes\QueryBuilder;
 
-    $dotenv = Dotenv\Dotenv::create(__DIR__);
-    $dotenv->load();
-
-   
-    // var_dump(Database::getInstance());
-
-    $qb = new QueryBuilder();
-    $d = $qb->table("users")->where(null, [
-        ["name", "=", "OLa"],
-        ["age", "=", "22"],
-    ])->orWhere("name", "Temitope")->orWhere("beards", '=', "None");
+    $userTable = new QueryBuilder("users");
 
 
-    var_dump($d->get());
+    echo json_encode($userTable->where([
+        ["name", "=", "OLayemii"],
+        ["age",  ">", "21"],
+    ])->orWhere("name", "Teegar")->pluck('id, age, gender')->orderBy("id")->first()->get());
