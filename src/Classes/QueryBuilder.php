@@ -22,8 +22,11 @@
                 "COLUMNS"       =>       [],
                 "WHERE"         =>       [],
                 "ORDERBY"       =>       [],
+                "GROUPBY"       =>       [],
                 "LIMIT"         =>       [],
+                "DISTINCT"      =>       false,
                 "FROM"          =>       [],
+                "INSERT"        =>       [],
                 "TEST_ROWS_COUNT"=>      50
             );
 
@@ -177,6 +180,17 @@
             }
 
 
+            public function groupBy($column){
+                $this->args["GROUPBY"] = $column;
+                return $this;
+            }
+
+            public function distinct(){
+                $this->args["DISTINCT"] = true;
+                return $this;
+            }
+
+
             public function chunk(int $limit, $iterFunc){
                 for ($i = 0; $i < ceil($this->args['TEST_ROWS_COUNT']/$limit); $i++){
                     if ($i == 0 ){
@@ -190,6 +204,49 @@
                         "upperLimit" => $upperLimit
                     );
                 }
+            }
+
+            public function insert($insertArray){
+                $this->args["TYPE"] = "INSERT";
+                if ($this->containsArray($insertArray)){
+                    foreach ($insertArray as $key => $insert){
+                        $this->insert($insert);
+                    }
+                }else{
+                    foreach ($insertArray as $key => $value){
+                        $this->args["INSERT"][] = array(
+                            "column" => $key,
+                            "value"  => $value
+                        );
+                    }
+                }
+
+                return $this->args["INSERT"];
+            }
+
+            public function update(array $updateArguments){
+                $this->args["TYPE"] = "UPDATE";
+                foreach ($updateArguments as $key => $value){
+                    $this->args["UPDATE"][] = array(
+                        "column"    => $key,
+                        "value"     => $value
+                    );
+                }
+
+                // To execute query
+            }
+
+            public function increment(string $row, int $increment = 1){
+                $this->update([$row => $increment]);
+            }
+
+            public function decrement(string $row, int $increment = 1){
+                $this->update([$row => $increment]);
+            }
+
+            public function insertGetId($insertArray, $col = null){
+                $this->insert($insertArray);
+                return $this->_dbh->lastInsertId($col);
             }
 
             public function get(){

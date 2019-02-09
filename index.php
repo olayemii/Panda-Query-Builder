@@ -8,7 +8,11 @@
     $userTable = new QueryBuilder("users");
 
 
-    echo json_encode($userTable->where([
-        ["name", "=", "OLayemii"],
-        ["age",  ">", "21"],
-    ])->orWhere("name", "Teegar")->pluck('id, age, gender')->orderBy("id")->first()->get());
+//    echo json_encode($userTable->where([
+//        ["name", "=", "OLayemii"],
+//        ["age",  ">", "21"],
+//    ])->orWhere("name", "Teegar")->pluck('id, age, gender')->orderBy("id")->first()->get());
+var_dump($userTable->insert([
+    ['name' => "yemi"],
+    ["age"  => 22 ]
+]));
