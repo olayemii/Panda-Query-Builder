@@ -18,6 +18,7 @@
 
             private $_dbh;
             private $args = array(
+                "TABLE"          =>       [],
                 "TYPE"          =>       [],
                 "COLUMNS"       =>       [],
                 "WHERE"         =>       [],
@@ -27,6 +28,7 @@
                 "DISTINCT"      =>       false,
                 "FROM"          =>       [],
                 "INSERT"        =>       [],
+                "JOIN"        =>       [],
                 "TEST_ROWS_COUNT"=>      50
             );
 
@@ -39,7 +41,7 @@
                 // Initialize $_dbh to hold an instance of the PDO object 
                 $this->_dbh = Database::getInstance()->getConnection();
 
-                $this->args['FROM'] = explode(",", $tblName);
+                $this->args['TABLE'] = explode(",", $tblName);
 
             }
 
@@ -124,12 +126,16 @@
             }
 
             /**
-             * @param string $columns
+             * @param mixed ...$columns
              *
              * @return $this
              */
-            public function pluck(string $columns){
-                $this->args["COLUMNS"] = explode(",", $columns);
+            public function select(...$columns){
+                foreach ($columns as $col){
+                    $this->args["COLUMNS"][] = array(
+                        "column" => $col
+                    );
+                }
                 return $this;
             }
 
@@ -167,7 +173,7 @@
 
             public function arrayLoadDefault($defaultValue, &$data){
                 if (empty($data)){
-                    array_push($data, [$defaultValue]);
+                    $data = $defaultValue;
                 }
 
             }
@@ -177,7 +183,17 @@
                 //Loading default values for required query parts
                 $this->arrayLoadDefault("SELECT", $this->args["TYPE"]);
                 $this->arrayLoadDefault("*", $this->args["COLUMNS"]);
+
+                $type = $this->args["TYPE"];
+                $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
+//                $columns = !is_array($this->args["COLUMNS"]) ?: implode(",", $this->args["COLUMNS"]);
+                $table = $this->args["TABLE"][0];
+                $values = implode(",",array_values(array_column($this->args["COLUMNS"], "value")));
+                $sql = "$type $columns FROM $table WHERE ";
+
+                return json_encode($sql);
             }
+
 
 
             public function groupBy($column){
@@ -207,21 +223,27 @@
             }
 
             public function insert($insertArray){
-                $this->args["TYPE"] = "INSERT";
+                $this->args["TYPE"] = "INSERT INTO";
                 if ($this->containsArray($insertArray)){
                     foreach ($insertArray as $key => $insert){
                         $this->insert($insert);
                     }
                 }else{
                     foreach ($insertArray as $key => $value){
-                        $this->args["INSERT"][] = array(
+                        $this->args["COLUMNS"][] = array(
                             "column" => $key,
                             "value"  => $value
                         );
                     }
                 }
 
-                return $this->args["INSERT"];
+                $type = $this->args["TYPE"];
+                $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
+                $table = $this->args["TABLE"][0];
+                $values = implode(",",array_values(array_column($this->args["COLUMNS"], "value")));
+                $sql = "$type $table ($columns) VALUES($values)";
+
+                return $sql;
             }
 
             public function update(array $updateArguments){
@@ -237,16 +259,32 @@
             }
 
             public function increment(string $row, int $increment = 1){
-                $this->update([$row => $increment]);
+                $this->update([$row => "$row + $increment"]);
+                return $this;
             }
 
-            public function decrement(string $row, int $increment = 1){
-                $this->update([$row => $increment]);
+            public function decrement(string $row, int $decrement = 1){
+                $this->update([$row => "$row - $decrement"]);
+                return $this;
             }
 
             public function insertGetId($insertArray, $col = null){
                 $this->insert($insertArray);
                 return $this->_dbh->lastInsertId($col);
+            }
+
+            public function join($table, $column1, $operator, $column2){
+                $this->args["JOIN"][] = array(
+                    "TYPE"      => "INNER JOIN",
+                    "TABLE"     => $table,
+                    "WHERE"     => array(
+                        "column1"   => $column1,
+                        "operator"  => $operator,
+                        "column2"   => $column2
+                    )
+                );
+
+                return $this;
             }
 
             public function get(){

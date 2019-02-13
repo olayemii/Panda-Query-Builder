@@ -12,7 +12,4 @@
 //        ["name", "=", "OLayemii"],
 //        ["age",  ">", "21"],
 //    ])->orWhere("name", "Teegar")->pluck('id, age, gender')->orderBy("id")->first()->get());
-var_dump($userTable->insert([
-    ['name' => "yemi"],
-    ["age"  => 22 ]
-]));
+    echo($userTable->select("name", "age")->buildQuery());
