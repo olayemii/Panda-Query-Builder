@@ -11,25 +11,27 @@
         use App\Classes\Database;
         use App\Exceptions\{
             InvalidArgumentsCountException,
-            InvalidArgumentException
+            InvalidArgumentException,
+            CreatingRecordError
         };
 
         class QueryBuilder {
 
             private $_dbh;
+            private $_error;
             private $args = array(
-                "TABLE"          =>       [],
-                "TYPE"          =>       [],
-                "COLUMNS"       =>       [],
-                "WHERE"         =>       [],
-                "ORDERBY"       =>       [],
-                "GROUPBY"       =>       [],
-                "LIMIT"         =>       [],
-                "DISTINCT"      =>       false,
-                "FROM"          =>       [],
-                "INSERT"        =>       [],
-                "JOIN"        =>       [],
-                "TEST_ROWS_COUNT"=>      50
+                "TABLE"             =>       [],
+                "TYPE"              =>       [],
+                "COLUMNS"           =>       [],
+                "WHERE"             =>       [],
+                "ORDERBY"           =>       [],
+                "GROUPBY"           =>       [],
+                "LIMIT"             =>       [],
+                "DISTINCT"          =>       false,
+                "FROM"              =>       [],
+                "INSERT"            =>       [],
+                "JOIN"              =>       [],
+                "TEST_ROWS_COUNT"   =>       50
             );
 
 
@@ -76,8 +78,8 @@
                             throw new InvalidArgumentsCountException("Invalid amount of arguments passed to WHERE");
                      }
                 }catch(InvalidArgumentsCountException $e){
-                    echo $e->getMessage();
-                    die();
+                    $this->_error =  $e->getMessage();
+                    die($e->getMessage());
                 }
 
                 return $this;
@@ -131,6 +133,9 @@
              * @return $this
              */
             public function select(...$columns){
+                if (empty($columns)){
+                    array_push($columns, "*");
+                }
                 foreach ($columns as $col){
                     $this->args["COLUMNS"][] = array(
                         "column" => $col
@@ -164,8 +169,8 @@
                     );
 
                 }catch(InvalidArgumentException $e){
-                    echo $e->getMessage();
-                    die();
+                    $this->_error =  $e->getMessage();
+                    die($e->getMessage());
                 }
 
                 return $this;
@@ -178,23 +183,43 @@
 
             }
 
+            public function getConditionals(){
+                $whereStr = '';
+                if (empty($this->args["WHERE"]))
+                    return;
+                foreach ($this->args["WHERE"] as $argSetKey => $argSetValue){
+                    $whereStr .= $argSetValue["column"] ." ". $argSetValue["operator"]." ". $argSetValue['value'];
+                    if(isset($this->args["WHERE"][$argSetKey+1])){
+                        $whereStr .= " ". $this->args["WHERE"][$argSetKey+1]["boolean"] ." ";
+                    }
+
+                }
+
+//                echo json_encode($this->args["WHERE"]);
+                echo $whereStr;
+            }
+
             public function buildQuery(){
 
                 //Loading default values for required query parts
                 $this->arrayLoadDefault("SELECT", $this->args["TYPE"]);
-                $this->arrayLoadDefault("*", $this->args["COLUMNS"]);
-
                 $type = $this->args["TYPE"];
                 $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
-//                $columns = !is_array($this->args["COLUMNS"]) ?: implode(",", $this->args["COLUMNS"]);
+                $columns = $columns ?:"";
                 $table = $this->args["TABLE"][0];
                 $values = implode(",",array_values(array_column($this->args["COLUMNS"], "value")));
-                $sql = "$type $columns FROM $table WHERE ";
+//                $conditionals = $this->getConditionals();
+                $sql = $type.$columns." FROM ".$table;
 
-                return json_encode($sql);
+                return $sql;
             }
 
+            public function delete( array $deleteArgs = []){
+                $this->args["TYPE"] = "DELETE";
 
+                return $this->_dbh->exec($this->buildQuery());
+
+            }
 
             public function groupBy($column){
                 $this->args["GROUPBY"] = $column;
@@ -223,7 +248,6 @@
             }
 
             public function insert($insertArray){
-                $this->args["TYPE"] = "INSERT INTO";
                 if ($this->containsArray($insertArray)){
                     foreach ($insertArray as $key => $insert){
                         $this->insert($insert);
@@ -237,13 +261,34 @@
                     }
                 }
 
-                $type = $this->args["TYPE"];
                 $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
                 $table = $this->args["TABLE"][0];
-                $values = implode(",",array_values(array_column($this->args["COLUMNS"], "value")));
-                $sql = "$type $table ($columns) VALUES($values)";
 
-                return $sql;
+                $values = array_values(array_column($this->args["COLUMNS"], "value"));
+                // Placeholders as ?
+                $valuesPlaceholder = implode(",",array_fill(0, count($this->args["COLUMNS"]), "?"));
+
+                try{
+                    $sql = "INSERT INTO $table ($columns) VALUES($valuesPlaceholder)";
+                    $this->_dbh->prepare($sql)->execute($values);
+                    $this->resetArgs();
+                    return true;
+                }catch(\PDOException $e){
+                    $this->_error =  $e->getMessage();
+                    return false;
+                }
+            }
+
+            public function resetArgs(){
+                array_walk($this->args, array($this, 'unsetArray'));
+            }
+
+            public function unsetArray(&$args, $key){
+                if (!in_array(strtolower($key), ["table", "test_rows_count"]) )
+                    unset($this->args[$key]);
+            }
+            public function getError(){
+                return $this->_error;
             }
 
             public function update(array $updateArguments){
@@ -290,8 +335,15 @@
             public function get(){
 //                $this->chunk(10, function($value){
 //                });
-                $this->buildQuery();
+//                die($this->buildQuery())
+                $preparedQuery = $this->_dbh->prepare($this->buildQuery());
+                if ( $preparedQuery->execute() ){
+                    $result = $preparedQuery->fetchAll(\PDO::FETCH_ASSOC);
+                    echo json_encode($this->args);
+                    $this->resetArgs();
+                    return $result;
+                }
 
-                return $this->args;
             }
+
         }
