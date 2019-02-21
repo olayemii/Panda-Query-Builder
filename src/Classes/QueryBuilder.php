@@ -205,9 +205,7 @@
             }
 
 
-            /**
-            Reset all arguments after a query, to free up array values
-             **/
+
             private function resetArgs(){
                 array_walk($this->args, array($this, 'unsetArray'));
             }
