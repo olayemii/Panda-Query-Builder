@@ -31,6 +31,8 @@
                 "FROM"              =>       [],
                 "INSERT"            =>       [],
                 "JOIN"              =>       [],
+                "UPDATE_ARGS"       =>       [],
+                "BIND_VALUES"       =>       [],
                 "TEST_ROWS_COUNT"   =>       50
             );
 
@@ -55,7 +57,7 @@
              *  Default is AND
              * @return $this
              */
-                private function whereBuilder(?string $logical, ...$whereArguments){
+            private function whereBuilder(?string $logical, ...$whereArguments){
                 try {
                     switch(count($whereArguments)){
                         case 3:
@@ -63,14 +65,13 @@
                             $this->loadWhere($logical, $whereArguments);
                             break;
                         case 1:
-                            if ($this->containsArray($whereArguments[0])){
-                                foreach ($whereArguments[0] as $arg){
-                                    array_unshift($arg, $logical);
-                                    call_user_func_array(array($this, 'whereBuilder'), $arg);
-                                }
+                            if (!$this->containsArray($whereArguments[0])){
+                                throw new InvalidArgumentsCountException("Conditions are to be specified in a multi-dimensional array");
                             }else{
-                                array_unshift($whereArguments, $logical);
-                                call_user_func_array(array($this, 'whereBuilder'), $whereArguments);
+                                foreach ($whereArguments[0] as $key => $whereArgArr){
+                                    array_unshift($whereArgArr, $logical);
+                                    call_user_func_array(array($this, 'whereBuilder'), $whereArgArr);
+                                }
                             }
 
                             break;
@@ -83,6 +84,7 @@
                 }
 
                 return $this;
+
             }
 
             public function loadWhere($logical, $whereArguments){
@@ -106,6 +108,7 @@
             public function orWhere(...$whereArguments){
                 array_unshift($whereArguments, "OR");
                 call_user_func_array(array($this, 'whereBuilder'), $whereArguments);
+                var_dump($this->args["WHERE"]);
 
                 return $this;
             }
@@ -113,7 +116,6 @@
             public function where(...$whereArguments){
                 array_unshift($whereArguments, "AND");
                 call_user_func_array(array($this, 'whereBuilder'), $whereArguments);
-
                 return $this;
             }
 
@@ -183,12 +185,15 @@
 
             }
 
-            public function getConditionals(){
+            private function getConditionals(){
                 $whereStr = '';
                 if (empty($this->args["WHERE"]))
                     return;
                 foreach ($this->args["WHERE"] as $argSetKey => $argSetValue){
-                    $whereStr .= $argSetValue["column"] ." ". $argSetValue["operator"]." ". $argSetValue['value'];
+                    $whereStr .= $argSetValue["column"] ." ". $argSetValue["operator"]." ". "?";
+                    //Loading bind array in same order placeholders where created
+
+                    $this->args["BIND_VALUES"][] = $argSetValue['value'];
                     if(isset($this->args["WHERE"][$argSetKey+1])){
                         $whereStr .= " ". $this->args["WHERE"][$argSetKey+1]["boolean"] ." ";
                     }
@@ -196,30 +201,49 @@
                 }
 
 //                echo json_encode($this->args["WHERE"]);
-                echo $whereStr;
+//                var_dump($this->args["BIND_VALUES"]);
+                return $whereStr;
             }
 
-            public function buildQuery(){
+            private function buildQuery(){
 
                 //Loading default values for required query parts
+                $sql = '';
                 $this->arrayLoadDefault("SELECT", $this->args["TYPE"]);
                 $type = $this->args["TYPE"];
                 $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
                 $columns = $columns ?:"";
                 $table = $this->args["TABLE"][0];
                 $values = implode(",",array_values(array_column($this->args["COLUMNS"], "value")));
-//                $conditionals = $this->getConditionals();
-                $sql = $type.$columns." FROM ".$table;
+                $conditionals = $this->getConditionals() ?? 1;
+
+                //This works for SELECT and DELETE
+                switch($this->args["TYPE"]){
+                    case "SELECT":
+                    case "DELETE":
+                        $sql = $type." ".$columns." FROM ".$table." WHERE ".$conditionals;
+                    break;
+                    case "UPDATE":
+                        $updatesArr = [];
+                        foreach ($this->args["UPDATE_ARGS"] as $tblColumn => $newValue){
+                            $updatesArr[] = $tblColumn . " = ". "?";
+                        }
+                        $updates = implode(",", $updatesArr);
+                        $sql = $type." ".$table." SET ".$updates." WHERE ".$conditionals;
+
+                        echo $sql;
+                        break;
+                }
 
                 return $sql;
             }
 
             public function delete( array $deleteArgs = []){
                 $this->args["TYPE"] = "DELETE";
-
-                return $this->_dbh->exec($this->buildQuery());
-
+                echo $this->buildQuery();
+                return $this;
             }
+
 
             public function groupBy($column){
                 $this->args["GROUPBY"] = $column;
@@ -292,15 +316,18 @@
             }
 
             public function update(array $updateArguments){
-                $this->args["TYPE"] = "UPDATE";
-                foreach ($updateArguments as $key => $value){
-                    $this->args["UPDATE"][] = array(
-                        "column"    => $key,
-                        "value"     => $value
-                    );
-                }
 
-                // To execute query
+                $this->args["TYPE"] = "UPDATE";
+                $this->args["UPDATE_ARGS"]  = $updateArguments;
+                $updateQuery = $this->buildQuery();
+                $bindArray = array_merge(array_values($this->args["UPDATE_ARGS"]), array_values($this->args["BIND_VALUES"]));
+                try{
+                    return $this->_dbh->prepare($updateQuery)->execute(
+                        $bindArray
+                    );
+                }catch(\PDOException $e){
+                    die($e->getMessage());
+                }
             }
 
             public function increment(string $row, int $increment = 1){
@@ -335,7 +362,7 @@
             public function get(){
 //                $this->chunk(10, function($value){
 //                });
-//                die($this->buildQuery())
+                die($this->buildQuery());
                 $preparedQuery = $this->_dbh->prepare($this->buildQuery());
                 if ( $preparedQuery->execute() ){
                     $result = $preparedQuery->fetchAll(\PDO::FETCH_ASSOC);
