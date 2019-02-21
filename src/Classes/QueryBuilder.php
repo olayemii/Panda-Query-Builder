@@ -45,18 +45,19 @@
                 // Initialize $_dbh to hold an instance of the PDO object 
                 $this->_dbh = Database::getInstance()->getConnection();
 
-                $this->args['TABLE'] = explode(",", $tblName);
+                $this->args['TABLE'] = $tblName;
 
             }
+
 
             /**
              * @param null|string $logical
              * @param mixed       ...$whereArguments
              *
-             *  Sets the SQL WHERE clause arguments and also stores the logical conditions attached to each in an array
-             *  Default is AND
              * @return $this
+             *
              */
+
             private function whereBuilder(?string $logical, ...$whereArguments){
                 try {
                     switch(count($whereArguments)){
@@ -87,7 +88,49 @@
 
             }
 
-            public function loadWhere($logical, $whereArguments){
+            /**
+             * @param array $array
+             *
+             * @return bool
+             *
+             */
+            private function containsArray(array $array): bool{
+                foreach ($array as $arr){
+                    if (is_array($arr)){
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+
+            /**
+             * @return string|void
+             *
+             */
+            private function getConditionals(){
+                $whereStr = '';
+                if (empty($this->args["WHERE"]))
+                    return;
+                foreach ($this->args["WHERE"] as $argSetKey => $argSetValue){
+                    $whereStr .= $argSetValue["column"] ." ". $argSetValue["operator"]." ". "?";
+                    //Loading bind array in same order placeholders where created
+
+                    $this->args["BIND_VALUES"][] = $argSetValue['value'];
+                    if(isset($this->args["WHERE"][$argSetKey+1])){
+                        $whereStr .= " ". $this->args["WHERE"][$argSetKey+1]["boolean"] ." ";
+                    }
+
+                }
+                return $whereStr;
+            }
+
+
+            /**
+             * @param $logical
+             * @param $whereArguments
+             */
+            private function loadWhere($logical, $whereArguments){
                 if (count($whereArguments) == 2){
                     array_splice($whereArguments, 1, 0, "=");
                 }
@@ -99,6 +142,188 @@
                     "boolean"   => $logical
                 );
             }
+
+
+            /**
+             * @param $defaultValue
+             * @param $data
+             *
+             */
+            private function arrayLoadDefault($defaultValue, &$data){
+                if (empty($data)){
+                    $data = $defaultValue;
+                }
+
+            }
+
+            /**
+             * @return string
+             */
+            private function buildQuery(){
+
+                try {
+                    //Loading default values for required query parts
+                    $sql = '';
+                    //                $this->arrayLoadDefault("SELECT", $this->args["TYPE"]);
+                    //                $this->arrayLoadDefault(["column" => "*"], $this->args["COLUMNS"][]);
+                    if (empty($this->args["TYPE"])){
+                        throw new \Exception("You must specify a Data Manipulation method (select, update, delete, insert)");
+                    }
+                    $type = $this->args["TYPE"];
+
+                    $columnArray = isset($this->args["COLUMNS"]) && $this->args["COLUMNS"];
+                    if (isset($columnArray) && !empty($columnArray)){
+                        $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
+                        $values = implode(",",array_values(array_column($this->args["COLUMNS"], "value")));
+                    }
+
+                    $columns = $columns??"";
+                    $table = $this->args["TABLE"];
+                    $limit = implode(",", $this->args["LIMIT"]);
+                    $conditionals = $this->getConditionals() ?? 1;
+
+                    //This works for SELECT and DELETE
+                    switch(explode(" ",$this->args["TYPE"])[0]){
+                        case "SELECT":
+                        case "DELETE":
+                            $sql = $type." ".$columns." FROM ".$table." WHERE ".$conditionals.($limit?" LIMIT $limit ":"");
+                            break;
+                        case "UPDATE":
+                            $updatesArr = [];
+                            foreach ($this->args["UPDATE_ARGS"] as $tblColumn => $newValue){
+                                $updatesArr[] = $tblColumn . " = ". "?";
+                            }
+                            $updates = implode(",", $updatesArr);
+                            $sql = $type." ".$table." SET ".$updates." WHERE ".$conditionals;
+
+                            break;
+                    }
+                    return $sql;
+                }catch(\Exception $e){
+                    die($e->getMessage());
+                }
+            }
+
+
+            /**
+            Reset all arguments after a query, to free up array values
+             **/
+            private function resetArgs(){
+                array_walk($this->args, array($this, 'unsetArray'));
+            }
+
+
+            /**
+             * @param $args
+             * @param $key
+             *            Actual implementation of the unsetter
+             */
+            private function unsetArray(&$args, $key){
+                if (!in_array(strtolower($key), ["table", "test_rows_count"]) )
+                    unset($this->args[$key]);
+            }
+
+
+            /**
+             * @param $query
+             * @param $bindParams
+             *
+             * @return bool
+             *
+             */
+            private function executeQuery($query, $bindParams = null){
+                $bindParams = $bindParams ?? array_values($this->args["BIND_VALUES"]);
+                try{
+
+                    $stmt = $this->_dbh->prepare($query);
+                    $stmt->execute($bindParams);
+                    return $stmt;
+
+                }catch(\PDOException $e){
+                    die($e->getMessage());
+                }
+            }
+
+            public function getError(){
+                return $this->_error;
+            }
+
+
+            /*********************************************************************************
+             *                               Public Methods Available                        *
+             *                                                                                *
+             *                                                                                *
+            ********************************************************************************/
+
+            /**
+             * @param $insertArray
+             *
+             * @return bool
+             */
+            public function insert($insertArray){
+                if ($this->containsArray($insertArray)){
+                    foreach ($insertArray as $key => $insert){
+                        $this->insert($insert);
+                    }
+                }else{
+                    foreach ($insertArray as $key => $value){
+                        $this->args["COLUMNS"][] = array(
+                            "column" => $key,
+                            "value"  => $value
+                        );
+                    }
+                }
+
+                $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
+                $table = $this->args["TABLE"];
+
+                $values = array_values(array_column($this->args["COLUMNS"], "value"));
+                // Placeholders as ?
+                $valuesPlaceholder = implode(",",array_fill(0, count($this->args["COLUMNS"]), "?"));
+
+                try{
+                    $sql = "INSERT INTO $table ($columns) VALUES($valuesPlaceholder)";
+                    $this->_dbh->prepare($sql)->execute($values);
+                    $this->resetArgs();
+                    return true;
+                }catch(\PDOException $e){
+                    $this->_error =  $e->getMessage();
+                    return false;
+                }
+            }
+
+
+            /**
+             * @param      $insertArray
+             * @param null $col
+             *
+             * @return string
+             */
+            public function insertGetId($insertArray, $col = null){
+                $this->insert($insertArray);
+                return $this->_dbh->lastInsertId($col);
+            }
+
+
+            /**
+             * @param mixed ...$columns
+             *
+             * @return $this
+             */
+            public function select(...$columns){
+                $this->args["TYPE"] = "SELECT";
+                if (empty($columns)){
+                    array_push($columns, "*");
+                }
+                foreach ($columns as $col){
+                    $this->args["COLUMNS"][] = array(
+                        "column" => $col
+                    );
+                }
+                return $this;
+            }
+
+
 
             /**
              * @param mixed ...$whereArguments
@@ -113,53 +338,42 @@
                 return $this;
             }
 
+
+            /**
+             * @param mixed ...$whereArguments
+             *
+             * @return $this
+             */
             public function where(...$whereArguments){
                 array_unshift($whereArguments, "AND");
                 call_user_func_array(array($this, 'whereBuilder'), $whereArguments);
                 return $this;
             }
 
+
             public function count(){
-
-            }
-
-            public function first(){
-                $this->args["LIMIT"][] = array("lowerLimit" => 0,"upperLimit" => 1);
-                // Suppose to also execute querty
-                return $this;
+                $this->args["TYPE"] = "SELECT COUNT(*)";
+                unset($this->args["COLUMNS"]);
+                echo $this->buildQuery();
+                return $this->executeQuery($this->buildQuery())->fetchAll();
             }
 
             /**
-             * @param mixed ...$columns
+             * @return $this
+             */
+            public function first(){
+                $this->args["LIMIT"] = array("upperLimit" => 1);
+                // Suppose to also execute query
+                return $this->executeQuery($this->buildQuery())->fetchAll();
+            }
+
+
+            /**
+             * @param        $column
+             * @param string $order
              *
              * @return $this
              */
-            public function select(...$columns){
-                if (empty($columns)){
-                    array_push($columns, "*");
-                }
-                foreach ($columns as $col){
-                    $this->args["COLUMNS"][] = array(
-                        "column" => $col
-                    );
-                }
-                return $this;
-            }
-
-            /**
-             * @param array $array
-             *
-             * @return bool
-             */
-            public function containsArray(array $array): bool{
-                foreach ($array as $arr){
-                    if (is_array($arr)){
-                        return true;
-                    }
-                }
-                return false;
-            }
-
             public function orderBy($column, string $order = "ASC"){
                 try {
                     if (!(strtoupper($order) == "ASC" || strtoupper($order) == "DESC")){
@@ -178,84 +392,44 @@
                 return $this;
             }
 
-            public function arrayLoadDefault($defaultValue, &$data){
-                if (empty($data)){
-                    $data = $defaultValue;
-                }
 
-            }
 
-            private function getConditionals(){
-                $whereStr = '';
-                if (empty($this->args["WHERE"]))
-                    return;
-                foreach ($this->args["WHERE"] as $argSetKey => $argSetValue){
-                    $whereStr .= $argSetValue["column"] ." ". $argSetValue["operator"]." ". "?";
-                    //Loading bind array in same order placeholders where created
 
-                    $this->args["BIND_VALUES"][] = $argSetValue['value'];
-                    if(isset($this->args["WHERE"][$argSetKey+1])){
-                        $whereStr .= " ". $this->args["WHERE"][$argSetKey+1]["boolean"] ." ";
-                    }
-
-                }
-
-//                echo json_encode($this->args["WHERE"]);
-//                var_dump($this->args["BIND_VALUES"]);
-                return $whereStr;
-            }
-
-            private function buildQuery(){
-
-                //Loading default values for required query parts
-                $sql = '';
-                $this->arrayLoadDefault("SELECT", $this->args["TYPE"]);
-                $type = $this->args["TYPE"];
-                $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
-                $columns = $columns ?:"";
-                $table = $this->args["TABLE"][0];
-                $values = implode(",",array_values(array_column($this->args["COLUMNS"], "value")));
-                $conditionals = $this->getConditionals() ?? 1;
-
-                //This works for SELECT and DELETE
-                switch($this->args["TYPE"]){
-                    case "SELECT":
-                    case "DELETE":
-                        $sql = $type." ".$columns." FROM ".$table." WHERE ".$conditionals;
-                    break;
-                    case "UPDATE":
-                        $updatesArr = [];
-                        foreach ($this->args["UPDATE_ARGS"] as $tblColumn => $newValue){
-                            $updatesArr[] = $tblColumn . " = ". "?";
-                        }
-                        $updates = implode(",", $updatesArr);
-                        $sql = $type." ".$table." SET ".$updates." WHERE ".$conditionals;
-
-                        echo $sql;
-                        break;
-                }
-
-                return $sql;
-            }
-
-            public function delete( array $deleteArgs = []){
+            /**
+             * @return bool
+             */
+            public function delete(){
                 $this->args["TYPE"] = "DELETE";
-                echo $this->buildQuery();
-                return $this;
+                var_dump(array_values($this->args["BIND_VALUES"]));
+                return (bool) $this->executeQuery($this->buildQuery());
             }
 
 
+            /**
+             * @param $column
+             *
+             * @return $this
+             *
+             */
             public function groupBy($column){
                 $this->args["GROUPBY"] = $column;
                 return $this;
             }
 
+            /**
+             * @return $this
+             */
             public function distinct(){
-                $this->args["DISTINCT"] = true;
+                $this->args["TYPE"] = "SELECT DISTINCT";
                 return $this;
             }
 
 
+            /**
+             * @param int $limit
+             * @param     $iterFunc
+             *
+             */
             public function chunk(int $limit, $iterFunc){
                 for ($i = 0; $i < ceil($this->args['TEST_ROWS_COUNT']/$limit); $i++){
                     if ($i == 0 ){
@@ -271,80 +445,51 @@
                 }
             }
 
-            public function insert($insertArray){
-                if ($this->containsArray($insertArray)){
-                    foreach ($insertArray as $key => $insert){
-                        $this->insert($insert);
-                    }
-                }else{
-                    foreach ($insertArray as $key => $value){
-                        $this->args["COLUMNS"][] = array(
-                            "column" => $key,
-                            "value"  => $value
-                        );
-                    }
-                }
 
-                $columns = implode(",",array_values(array_column($this->args["COLUMNS"], "column")));
-                $table = $this->args["TABLE"][0];
 
-                $values = array_values(array_column($this->args["COLUMNS"], "value"));
-                // Placeholders as ?
-                $valuesPlaceholder = implode(",",array_fill(0, count($this->args["COLUMNS"]), "?"));
 
-                try{
-                    $sql = "INSERT INTO $table ($columns) VALUES($valuesPlaceholder)";
-                    $this->_dbh->prepare($sql)->execute($values);
-                    $this->resetArgs();
-                    return true;
-                }catch(\PDOException $e){
-                    $this->_error =  $e->getMessage();
-                    return false;
-                }
-            }
 
-            public function resetArgs(){
-                array_walk($this->args, array($this, 'unsetArray'));
-            }
-
-            public function unsetArray(&$args, $key){
-                if (!in_array(strtolower($key), ["table", "test_rows_count"]) )
-                    unset($this->args[$key]);
-            }
-            public function getError(){
-                return $this->_error;
-            }
-
+            /**
+             * @param array $updateArguments
+             *
+             * @return bool
+             */
             public function update(array $updateArguments){
 
                 $this->args["TYPE"] = "UPDATE";
                 $this->args["UPDATE_ARGS"]  = $updateArguments;
                 $updateQuery = $this->buildQuery();
                 $bindArray = array_merge(array_values($this->args["UPDATE_ARGS"]), array_values($this->args["BIND_VALUES"]));
-                try{
-                    return $this->_dbh->prepare($updateQuery)->execute(
-                        $bindArray
-                    );
-                }catch(\PDOException $e){
-                    die($e->getMessage());
-                }
+                return (bool) $this->executeQuery($updateQuery, $bindArray);
             }
 
+
+            /**
+             * @param string $row
+             * @param int    $increment
+             */
             public function increment(string $row, int $increment = 1){
-                $this->update([$row => "$row + $increment"]);
-                return $this;
+                $this->_dbh->query("UPDATE {$this->args["TABLE"]} SET {$row} = {$row} + $increment");
             }
 
+            /**
+             * @param string $row
+             * @param int    $decrement
+             */
             public function decrement(string $row, int $decrement = 1){
-                $this->update([$row => "$row - $decrement"]);
-                return $this;
+                $this->_dbh->query("UPDATE {$this->args["TABLE"]} SET {$row} = {$row} - $decrement");
             }
 
-            public function insertGetId($insertArray, $col = null){
-                $this->insert($insertArray);
-                return $this->_dbh->lastInsertId($col);
-            }
 
+            /**
+             * @param $table
+             * @param $column1
+             * @param $operator
+             * @param $column2
+             *
+             * @return $this
+             *
+             */
             public function join($table, $column1, $operator, $column2){
                 $this->args["JOIN"][] = array(
                     "TYPE"      => "INNER JOIN",
@@ -359,17 +504,18 @@
                 return $this;
             }
 
+            /**
+             * @return array
+             *
+             */
             public function get(){
-//                $this->chunk(10, function($value){
-//                });
-                die($this->buildQuery());
-                $preparedQuery = $this->_dbh->prepare($this->buildQuery());
-                if ( $preparedQuery->execute() ){
-                    $result = $preparedQuery->fetchAll(\PDO::FETCH_ASSOC);
-                    echo json_encode($this->args);
-                    $this->resetArgs();
-                    return $result;
-                }
+//                if ($this->executeQuery($this->buildQuery(), array_values($this->args["BIND_VALUES"]))){
+//                    return $queryExec->fetchAll();
+//                }
+//                die($this->buildQuery());
+                $result = $this->_dbh->prepare($this->buildQuery());
+                $result->execute($this->args["BIND_VALUES"]);
+                return $result->fetchAll(\PDO::FETCH_ASSOC);
 
             }
 

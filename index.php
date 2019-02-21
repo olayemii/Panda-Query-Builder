@@ -2,10 +2,8 @@
 
 require __DIR__."/src/Core/bootstrap.php";
 
-use App\Classes\Database;
-use App\Classes\QueryBuilder;
+use App\Classes\QueryBuilder as PandaQB;
 
-$userTable = new QueryBuilder("users");
+$userTable = new PandaQB("users");
 
-echo $userTable->where([
-    ["id", "20"]])->update(["name" => "OLayemii"]);
+var_dump($userTable->select()->count());
