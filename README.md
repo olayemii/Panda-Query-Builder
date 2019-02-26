@@ -138,3 +138,13 @@ To increment all reputations by 200
 
 **decrement()**
 The decrement() method works like the increment() but reduces the values instead
+
+## **Deleting Records**
+
+**delete()**
+The delete method performs the delete operation on a table, specific records are first specified by a where method, if a where method is omitted, a truncate operation is carried out (empties all records in the table)
+
+`$userTable->where("name", "Fred")->delete()`
+
+Deletes all records having a name of "Fred"
+
