@@ -112,4 +112,29 @@ To insert, pass the insert values as a mapping of column (in the db table) to va
 This method returns a boolean (true / false) unlike the `insertGetId()` which returns the last inserted id of an auto-incrementing column in the table.
 
 
+## **Updating Records**
+To update, pass the update values as a mapping of column (in the db table) to value (to be inserted).
 
+**update()**
+`$userTable->update(["username" => "OLayemii"])`
+
+The above query will change the username field of all records in the specified table to "OLayemii" , to be specific on which record to update, chain a where method with the conditions.
+
+`$userTable->update(["username" => "OLayemii"])->where("id", ">", 30)`
+
+**increment()**
+The increment method is used to update all records in the table.
+It can only be used to increment numerical data on the table.
+
+To increment all values on column on the user table named `reputations` for all user
+
+`$userTable->increment("reputations")`
+
+The increment method accepts an optional second parameter for specifying the increment value
+
+`$userTable->increment("reputations", 200)`
+
+To increment all reputations by 200
+
+**decrement()**
+The decrement() method works like the increment() but reduces the values instead
