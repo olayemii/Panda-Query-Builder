@@ -148,3 +148,37 @@ The delete method performs the delete operation on a table, specific records are
 
 Deletes all records having a name of "Fred"
 
+## **Registering Events**
+
+Panda Query Builder comes with 8 events which can be registered
+
+ 1. before-select
+ 2. after-select
+ 3. before-insert
+ 4. after-insert
+ 5. before-delete
+ 6. after-delete
+ 7. before-update
+ 8. after-update
+You can register the events and set an operation to be performed (e.g mailing a user on registration, getting last insert id and using it to insert to a different table) before and after CRUD operations
+
+> Register events before making DB operations
+
+    QB::registerEvent(eventType, $Table, callBackFunction )
+
+**Registering an event before selecting a record**
+
+    QB::registerEvent("before-select", "users", function(){
+    		echo "This will happen each time before you perform a select operation on the users table";
+    });
+
+**Getting Last Insert Id**
+To get the last insert id (i.e after an insert operation)
+
+    QB::registerEvent("after-insert", "users", function($userId){
+	    QB::table("countries")->insert(["user_id" => $userId, "country" => "Nigeria"]);
+    });
+
+
+> Any variable passed into the callback function will be used as the
+> variable during other operations in the callback
