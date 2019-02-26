@@ -21,6 +21,19 @@ If no columns are specified, the default column is the wildcard * which selects 
 
 `$userTable->select("name", "age", "height")->get()`
 
+**Select Distinct**
+To select distinct records, chain the distinct method to a select method
+`$userTable->select("name", "age", "height")->distinct()->get()`
+
+**Count**
+To get count of records rows, chain the count method to a select method
+`$userTable->select("name", "age", "height")->count()`
+
+**OrderBy**
+
+`$userTable->select("name", "age", "height")->orderBy("id", "ASC")`
+Select records and orders the id in an order, arguments can either be `ASC or DESC`
+
 ## **Adding conditions**
 
 **Adding WHERE conditions**
@@ -67,4 +80,16 @@ Selects records with an id of NULL
 
 `$userTable->select()->isNull("id")->get();`
 Selects records with an id that is NOT NULL 
+
+**MULTIPLE WHERE CONDITIONS**
+To check for multiple conditions, pass an array of arrays with conditions to the where/orWhere method
+
+`$userTable->select()where([
+["name","OLayemii"],
+["age", ">", "30"]
+])->get();`
+
+This query selects a users with name of OLayemii and an id greater than 30.
+Notice the default operator is **=** so `["id", "5"]` is also same as `["id", "=", "5"]`
+
 
