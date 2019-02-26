@@ -46,5 +46,25 @@ Selects records having either id of 1, 2 or 3
 
 `$userTable->select()->whereNotIn("id", [1,2,3])->get();`
 Selects records with id that are not 1,2 or 3
+
+**WHERE BETWEEN**
+You can also select rows that fall between a range
+
+`$userTable->select()->whereBetween("id", [1,100])->get();`
+Selects records with id that are not 1,2,3 . . .100
+
+**WHERE NOT BETWEEN**
+
+`$userTable->select()->whereNotBetween("id", [1,100])->get();`
+Selects records with id that are not between 1,2,3 . . .100
  
+**IS NULL**
+
+`$userTable->select()->isNull("id")->get();`
+Selects records with an id of NULL
+
+**IS NOT NULL**
+
+`$userTable->select()->isNull("id")->get();`
+Selects records with an id that is NOT NULL 
 
