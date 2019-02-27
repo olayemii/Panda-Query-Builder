@@ -68,6 +68,7 @@ Selects records having either id of 1, 2 or 3
 Selects records with id that are not 1,2 or 3
 
 **WHERE BETWEEN**
+
 You can also select rows that fall between a range
 
 `$userTable->select()->whereBetween("id", [1,100])->get();`
@@ -89,6 +90,7 @@ Selects records with an id of NULL
 Selects records with an id that is NOT NULL 
 
 **MULTIPLE WHERE CONDITIONS**
+
 To check for multiple conditions, pass an array of arrays with conditions to the where/orWhere method
 
 `$userTable->select()where([
@@ -217,6 +219,7 @@ You can register the events and set an operation to be performed (e.g mailing a 
     });
 
 **Getting Last Insert Id**
+
 To get the last insert id (i.e after an insert operation)
 
     QB::registerEvent("after-insert", "users", function($userId){
