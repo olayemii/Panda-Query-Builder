@@ -105,6 +105,7 @@ Notice the default operator is **=** so `["id", "5"]` is also same as `["id", "=
 Panda Query Builder provides two methods to insert records `insert()` and `insertGetId()`
 
 **Insert()**
+
 To insert, pass the insert values as a mapping of column (in the db table) to value (to be inserted).
 
 `$userTable->insert(["username" => "OLayemii", "age" => 10, "eye_color" => "Brown"])`
@@ -116,6 +117,7 @@ This method returns a boolean (true / false) unlike the `insertGetId()` which re
 To update, pass the update values as a mapping of column (in the db table) to value (to be inserted).
 
 **update()**
+
 `$userTable->update(["username" => "OLayemii"])`
 
 The above query will change the username field of all records in the specified table to "OLayemii" , to be specific on which record to update, chain a where method with the conditions.
@@ -123,6 +125,7 @@ The above query will change the username field of all records in the specified t
 `$userTable->update(["username" => "OLayemii"])->where("id", ">", 30)`
 
 **increment()**
+
 The increment method is used to update all records in the table.
 It can only be used to increment numerical data on the table.
 
@@ -137,11 +140,13 @@ The increment method accepts an optional second parameter for specifying the inc
 To increment all reputations by 200
 
 **decrement()**
+
 The decrement() method works like the increment() but reduces the values instead
 
 ## **Deleting Records**
 
 **delete()**
+
 The delete method performs the delete operation on a table, specific records are first specified by a where method, if a where method is omitted, a truncate operation is carried out (empties all records in the table)
 
 `$userTable->where("name", "Fred")->delete()`
@@ -157,6 +162,7 @@ Panda Query Builder comes with methods to perform
 
 
 **leftJoin()**
+
 To perform left joins, use the leftjoin() method.
 
 `$userTable->select("users.name", "countries.name", "user.age")->leftJoin("countries", "users.id", "=", "countries.id")->get()`
@@ -166,6 +172,7 @@ This produces
 SELECT `users.name`, `countries.name`, `user.age` FROM `users`LEFT JOIN countries ON `users.id` = countries.id
 
 **rightJoin()**
+
 To perform left joins, use the rightJoin() method.
 
 `$userTable->select("users.name", "countries.name", "user.age")->rightJoin("countries", "users.id", "=", "countries.id")->get()`
@@ -175,6 +182,7 @@ This produces
 	SELECT `users.name`, `countries.name`, `user.age` FROM `users`RIGHT JOIN countries ON `users.id` = countries.id
 
 **join()**
+
 To perform left joins, use the join() method.
 
 `$userTable->select("users.name", "countries.name", "user.age")->join("countries", "users.id", "=", "countries.id")->get()`
