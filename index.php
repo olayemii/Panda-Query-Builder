@@ -2,7 +2,6 @@
 
 require __DIR__."/src/Core/bootstrap.php";
 
-use App\Classes\QueryBuilder as PandaQB;
 use App\Factories\QB;
 //$userTable = new PandaQB("users");
 QB::registerEvent("before-insert", "users", function(){
@@ -17,4 +16,8 @@ QB::registerEvent("before-insert", "users", function(){
     echo "Inserting a new user with a country";
 });
 
-echo json_encode(QB::table("users")->insert(["name" => "Ella Egwuatu", "email" => "ellamillion85@gmail.com", "password" => "dazzlingellla"]));
+//echo json_encode(QB::table("users")->insert(["name" => "Ella Egwuatu", "email" => "ellamillion85@gmail.com", "password" => "dazzlingellla"]));
+
+echo QB::table("users")->select("name")->distinct()->getSql();
+
+echo QB::table("users")->select("users.name", "countries.name", "user.age")->leftJoin("countries", "users.id", "=", "countries.id")->getSql();
