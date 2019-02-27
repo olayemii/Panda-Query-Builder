@@ -7,40 +7,26 @@
 * Time: 6:39 PM
 */
 namespace App\Classes;
-class Database {
+class Database{
+    public static function registerDatabase(){
+        Registry::register("pdo", function (){
+            try {
+                // Init Variables
+                $server = getenv('DB_SERVER');
+                $host = getenv('DB_HOST');
+                $user = getenv('DB_USER');
+                $password = getenv('DB_PASS');
+                $schema = getenv('DB_DATABASE');
 
+                // Init PDO
+                $pdo = new \PDO("$server:host=$host; dbname=$schema", $user, $password);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
-private static $instance;
-private $_pdo;
+                return $pdo;
 
-private  function __construct(){
-    try {
-        // Init Variables
-        $server = getenv('DB_SERVER');
-        $host = getenv('DB_HOST');
-        $user = getenv('DB_USER');
-        $password = getenv('DB_PASS');
-        $schema = getenv('DB_DATABASE');
-
-        // Init PDO
-        $this->_pdo = new \PDO("$server:host=$host; dbname=$schema", $user, $password);
-        $this->_pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-    }catch(\PDOException $e){
-        echo $e->getMessage();
+            }catch(\PDOException $e){
+                echo $e->getMessage();
+            }
+        });
     }
-}
-
-//Return instance of the class
-public static function getInstance(){
-
-    if (!isset($instance)){
-        self::$instance = new Database();
-    }
-
-    return self::$instance;
-}
-
-public function getConnection(){
-    return $this->_pdo;
-}
 }

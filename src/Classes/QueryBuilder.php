@@ -49,12 +49,15 @@ class QueryBuilder {
      */
     public function __construct($tblName){
         // Initialize $_dbh to hold an instance of the PDO object
-        $this->_dbh = Database::getInstance()->getConnection();
+        $this->_dbh = Registry::run("pdo");
 
         $this->args['TABLE'] = $tblName;
 
     }
 
+    public static function table($tblName){
+        return new QueryBuilder($tblName);
+    }
 
     /**
      * @param null|string $logical
@@ -281,26 +284,10 @@ class QueryBuilder {
     private function executeQuery($query, $bindParams = null){
         $bindParams = $bindParams ?? array_values($this->args["BIND_VALUES"]);
         try{
-            $registeredEventsBefore = self::$registeredEvents["before"];
-            foreach ($registeredEventsBefore as $bKey => $bevents){
-                $bType = explode("-", $registeredEventsBefore[$bKey]["type"])[1];
-                if ($bType === strtolower($this->args["TYPE"]) && $registeredEventsBefore[$bKey]["table"] === $this->args["TABLE"]){
-                    $registeredEventsBefore[$bKey]["callable"](1);
-                }
-            }
+            $this->executePreEvents(self::$registeredEvents["before"]);
             $stmt = $this->_dbh->prepare($query);
             $stmt->execute($bindParams);
-            $registeredEventsAfter = self::$registeredEvents["after"];
-            foreach ($registeredEventsAfter as $aKey => $aevents){
-                $aType = explode("-", $registeredEventsAfter[$aKey]["type"])[1];
-                if ($aType === strtolower($this->args["TYPE"]) && $registeredEventsAfter[$aKey]["table"] === $this->args["TABLE"]){
-                    $lastInsertid = null;
-                    if ($aType === "insert"){
-                        $lastInsertid = $this->_dbh->lastInsertId();
-                    }
-                    $registeredEventsAfter[$aKey]["callable"]($lastInsertid);
-                }
-            }
+            $this->executeEvents(self::$registeredEvents["after"], $this->_dbh->lastInsertId());
 
             return $stmt;
 
@@ -309,6 +296,15 @@ class QueryBuilder {
         }
     }
 
+
+    private function executeEvents($registeredEvents, $lastInsertId){
+        foreach ($registeredEvents as $evKey => $events){
+            $evType = explode("-", $registeredEvents[$evKey]["type"])[1];
+            if ($evType === strtolower($this->args["TYPE"]) && $registeredEvents[$evKey]["table"] === $this->args["TABLE"]){
+                $registeredEvents[$evKey]["callable"]($lastInsertId);
+            }
+        }
+    }
 
     private function rangedWhereBuilder($column, array $whereRange, $operator = "IN"){
         $val = [$column, $operator, $whereRange];

@@ -8,6 +8,11 @@
 
 //Bootstrap the autoloader
 require __DIR__.'/../../vendor/autoload.php';
+
+use App\Classes\Database;
 //Load environment variables
 $dotenv = Dotenv\Dotenv::create(__DIR__."/../../");
 $dotenv->load();
+
+//Load
+Database::registerDatabase();
