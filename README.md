@@ -148,6 +148,42 @@ The delete method performs the delete operation on a table, specific records are
 
 Deletes all records having a name of "Fred"
 
+## **Joins**
+Panda Query Builder comes with methods to perform
+
+ - Left Joins
+ - Right Joins
+ - Inner Joins
+
+
+**leftJoin()**
+To perform left joins, use the leftjoin() method.
+
+`$userTable->select("users.name", "countries.name", "user.age")->leftJoin("countries", "users.id", "=", "countries.id")->get()`
+
+This produces 
+
+SELECT `users.name`, `countries.name`, `user.age` FROM `users`LEFT JOIN countries ON `users.id` = countries.id
+
+**rightJoin()**
+To perform left joins, use the rightJoin() method.
+
+`$userTable->select("users.name", "countries.name", "user.age")->rightJoin("countries", "users.id", "=", "countries.id")->get()`
+
+This produces 
+
+	SELECT `users.name`, `countries.name`, `user.age` FROM `users`RIGHT JOIN countries ON `users.id` = countries.id
+
+**join()**
+To perform left joins, use the join() method.
+
+`$userTable->select("users.name", "countries.name", "user.age")->join("countries", "users.id", "=", "countries.id")->get()`
+
+This produces 
+
+	SELECT `users.name`, `countries.name`, `user.age` FROM `users` JOIN countries ON `users.id` = countries.id
+
+
 ## **Registering Events**
 
 Panda Query Builder comes with 8 events which can be registered
