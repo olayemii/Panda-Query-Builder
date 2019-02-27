@@ -226,3 +226,8 @@ To get the last insert id (i.e after an insert operation)
 
 > Any variable passed into the callback function will be used as the
 > variable during other operations in the callback
+
+
+
+
+> Special thanks to Laravel's Query Builder & Pixie Query Builder for the ideas ***winks***
