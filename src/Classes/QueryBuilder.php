@@ -8,6 +8,7 @@
  */
 
 namespace App\Classes;
+
 use App\Classes\Database;
 use App\Exceptions\{
     InvalidArgumentsCountException,
@@ -43,6 +44,8 @@ class QueryBuilder {
         "after"  => []
     );
     private static $rawParam = "";
+
+
     /**
      * QueryBuilder constructor.
      *
@@ -54,18 +57,13 @@ class QueryBuilder {
 
     }
 
-    public static function table($tblName){
-        return new QueryBuilder($tblName);
-    }
 
     /**
      * @param null|string $logical
      * @param mixed       ...$whereArguments
      *
      * @return $this
-     *
      */
-
     private function whereBuilder(?string $logical, ...$whereArguments){
         try {
             switch(count($whereArguments)){
@@ -101,8 +99,8 @@ class QueryBuilder {
      * @param array $array
      *
      * @return bool
-     *
      */
+
     private function containsArray(array $array): bool{
         foreach ($array as $arr){
             if (is_array($arr)){
@@ -113,10 +111,8 @@ class QueryBuilder {
     }
 
 
-
     /**
      * @return string|void
-     *
      */
     private function getConditionals(){
         $whereStr = '';
@@ -147,8 +143,8 @@ class QueryBuilder {
 
 
     /**
-     * @param $logical
-     * @param $whereArguments
+     * @param       $logical
+     * @param array $whereArguments
      */
     private function loadWhere($logical, array $whereArguments){
         if (count($whereArguments) == 2){
@@ -163,7 +159,9 @@ class QueryBuilder {
 
     }
 
-
+    /**
+     * @return string
+     */
     private function getJoins(){
         $joinCompoundArray = $this->args["JOIN"];
         $formedSql = '';
@@ -176,7 +174,6 @@ class QueryBuilder {
             $formedSql .= "`{$joinEl["column1"]}`"." ". $joinEl["operator"]." `".$joinEl["column2"]."` ";
         }
 
-        echo $formedSql;
         return $formedSql;
     }
 
@@ -184,7 +181,6 @@ class QueryBuilder {
     /**
      * @param $defaultValue
      * @param $data
-     *
      */
     private function arrayLoadDefault($defaultValue, &$data){
         if (empty($data)){
@@ -194,15 +190,15 @@ class QueryBuilder {
     }
 
 
-
-
+    /**
+     * @return string
+     */
     private function buildQuery(){
         try {
+
             //Loading default values for required query parts
 
-
             $sql = '';
-
             $this->arrayLoadDefault("SELECT", $this->args["TYPE"]);
             $this->arrayLoadDefault([["column" => "*"]], $this->args["COLUMNS"]);
 
@@ -259,23 +255,12 @@ class QueryBuilder {
         }
     }
 
-    public static function raw($param){
-        self::$rawParam = $param;
-    }
-
-    private function resetArgs(){
-        array_walk($this->args, array($this, 'unsetArray'));
-    }
-
 
     /**
-     * @param $args
-     * @param $key
-     *            Actual implementation of the unsetter
+     * @param $param
      */
-    private function unsetArray(&$args, $key){
-        if (!in_array(strtolower($key), ["table", "test_rows_count"]) )
-            unset($this->args[$key]);
+    public static function raw($param){
+        self::$rawParam = $param;
     }
 
 
@@ -293,7 +278,7 @@ class QueryBuilder {
             $stmt = $this->_dbh->prepare($query);
             $stmt->execute($bindParams);
             $this->executeEvents(self::$registeredEvents["after"], $this->_dbh->lastInsertId());
-
+            self::$rawParam = "";
             return $stmt;
 
         }catch(\PDOException $e){
@@ -301,7 +286,10 @@ class QueryBuilder {
         }
     }
 
-
+    /**
+     * @param      $registeredEvents
+     * @param null $lastInsertId
+     */
     private function executeEvents($registeredEvents, $lastInsertId = null){
         foreach ($registeredEvents as $evKey => $events){
             $evType = explode("-", $registeredEvents[$evKey]["type"])[1];
@@ -311,18 +299,35 @@ class QueryBuilder {
         }
     }
 
+    /**
+     * @param        $column
+     * @param array  $whereRange
+     * @param string $operator
+     *
+     * @return $this
+     */
     private function rangedWhereBuilder($column, array $whereRange, $operator = "IN"){
         $val = [$column, $operator, $whereRange];
         call_user_func(array($this, 'loadWhere'), "AND", $val);
         return $this;
     }
 
-
+    /**
+     * @param        $column
+     * @param string $operator
+     */
     private function nullWhere($column, $operator = "IS"){
         $val = [$column, $operator, null];
         call_user_func(array($this, 'loadWhere'), "AND", $val);
     }
 
+    /**
+     * @param        $table
+     * @param        $column1
+     * @param        $operator
+     * @param        $column2
+     * @param string $type
+     */
     private function buildJoin($table, $column1, $operator, $column2, $type = "JOIN"){
         $this->args["JOIN"][] = array(
             "TYPE"      => $type,
@@ -345,6 +350,17 @@ class QueryBuilder {
      *                                                                                *
      *                                                                                *
     ********************************************************************************/
+
+    /**
+     * @param $tblName
+     *
+     * @return \App\Classes\QueryBuilder
+     */
+
+    public static function table($tblName){
+        return new QueryBuilder($tblName);
+    }
+
 
     /**
      * @param $insertArray
@@ -413,9 +429,8 @@ class QueryBuilder {
      * @return mixed
      *
      */
-    public function count(){
-        $this->args["TYPE"] = "SELECT COUNT(*)";
-        unset($this->args["COLUMNS"]);
+    public function count($column="*"){
+        self::$rawParam = "COUNT($column)";
         return $this->executeQuery($this->buildQuery())->fetchColumn();
     }
 

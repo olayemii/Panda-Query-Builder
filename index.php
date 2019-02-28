@@ -29,6 +29,9 @@ use App\Classes\Registry;
 //
 //Registry::run("pdo");
 
-//var_dump(QB::table("users")->select("name")->where("id", ">", "4")->get());
+var_dump(QB::table("countries")->select("name")->distinct()->getSql());
 
-QB::table("users")->select("*")->join("countries", "countries.user_id", "=", "users.id")->join("migrations", "migraes.id", "=", "migr.uid")->getSql();
+
+
+
+//QB::table("users")->select("*")->join("countries", "countries.user_id", "=", "users.id")->join("migrations", "migraes.id", "=", "migr.uid")->getSql();
