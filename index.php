@@ -20,7 +20,7 @@ use App\Classes\Registry;
 //
 //echo QB::table("users")->select("name")->distinct()->getSql();
 //
-echo QB::table("users")->select("users.name", "countries.name", "user.age")->leftJoin("countries", "users.id", "=", "countries.id")->getSql();
+//echo QB::table("users")->select("users.name", "countries.name", "user.age")->leftJoin("countries", "users.id", "=", "countries.id")->getSql();
 //
 
 //Registry::register("pdo", function (){
@@ -28,3 +28,7 @@ echo QB::table("users")->select("users.name", "countries.name", "user.age")->lef
 //});
 //
 //Registry::run("pdo");
+
+//var_dump(QB::table("users")->select("name")->where("id", ">", "4")->get());
+
+QB::table("users")->select("*")->join("countries", "countries.user_id", "=", "users.id")->join("migrations", "migraes.id", "=", "migr.uid")->getSql();

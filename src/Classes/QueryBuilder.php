@@ -50,7 +50,6 @@ class QueryBuilder {
     public function __construct($tblName){
         // Initialize $_dbh to hold an instance of the PDO object
         $this->_dbh = Registry::run("pdo");
-
         $this->args['TABLE'] = $tblName;
 
     }
@@ -76,7 +75,8 @@ class QueryBuilder {
                     break;
                 case 1:
                     if (!$this->containsArray($whereArguments[0])){
-                        call_user_func(array($this, 'whereBuilder'), $logical, array_keys($whereArguments[0])[0], array_values($whereArguments[0])[0]);
+                        $singleWhere = array_values($whereArguments[0]);
+                        call_user_func(array($this, 'whereBuilder'), $logical, $singleWhere[0], $singleWhere[1], $singleWhere[2]);
                     }else{
                         foreach ($whereArguments[0] as $key => $whereArgArr){
                             array_unshift($whereArgArr, $logical);
@@ -170,8 +170,13 @@ class QueryBuilder {
         foreach ($joinCompoundArray as $joinArrayIndex => $joinArray){
             $formedSql .= $joinArray["TYPE"]." ".$joinArray["TABLE"]." ON ";
             $joinArray = $joinArray["WHERE"];
-            $formedSql .= "`{$joinArray["column1"]}`"." ". $joinArray["operator"]." ".$joinArray["column2"]." ";
+            foreach ($joinArray as $joinColumn => $joinValue ) {
+                $joinEl[$joinColumn] = implode("`.`",explode(".", $joinValue));
+            }
+            $formedSql .= "`{$joinEl["column1"]}`"." ". $joinEl["operator"]." `".$joinEl["column2"]."` ";
         }
+
+        echo $formedSql;
         return $formedSql;
     }
 
@@ -284,7 +289,7 @@ class QueryBuilder {
     private function executeQuery($query, $bindParams = null){
         $bindParams = $bindParams ?? array_values($this->args["BIND_VALUES"]);
         try{
-            $this->executePreEvents(self::$registeredEvents["before"]);
+            $this->executeEvents(self::$registeredEvents["before"]);
             $stmt = $this->_dbh->prepare($query);
             $stmt->execute($bindParams);
             $this->executeEvents(self::$registeredEvents["after"], $this->_dbh->lastInsertId());
@@ -297,7 +302,7 @@ class QueryBuilder {
     }
 
 
-    private function executeEvents($registeredEvents, $lastInsertId){
+    private function executeEvents($registeredEvents, $lastInsertId = null){
         foreach ($registeredEvents as $evKey => $events){
             $evType = explode("-", $registeredEvents[$evKey]["type"])[1];
             if ($evType === strtolower($this->args["TYPE"]) && $registeredEvents[$evKey]["table"] === $this->args["TABLE"]){
